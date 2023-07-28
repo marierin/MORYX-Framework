@@ -3,6 +3,8 @@
 
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Linq;
+using System.ComponentModel;
 
 namespace Moryx.Workplans
 {
@@ -91,6 +93,106 @@ namespace Moryx.Workplans
         public static Workplan Restore(List<IConnector> connectors, List<IWorkplanStep> steps)
         {
             return new Workplan(connectors, steps);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(!(obj is Workplan))
+            {
+                return false;
+            }
+            Workplan newPlan = (Workplan)obj;
+
+        
+            //start, end und failed werden festgelegt
+            var start = this.Connectors.First(x => x.Name.Equals("Start"));
+            var end = this.Connectors.First(x => x.Name.Equals("End"));
+            var failed = this.Connectors.First(x => x.Name.Equals("Failed"));
+            var next = this.Steps.FirstOrDefault(x => object.Equals(x.Inputs, start));
+           
+            var newStart = newPlan.Connectors.First(x => x.Name.Equals("Start"));
+            var newEnd = newPlan.Connectors.First(x => x.Name.Equals("End"));
+            var newFailed = newPlan.Connectors.First(x => x.Name.Equals("Failed"));
+            var newNext = newPlan.Steps.First(x => x.Inputs.Equals(start));
+
+            //Listen zur Notiz werden erstellt 
+            List<IWorkplanStep> note = new List<IWorkplanStep>();
+            List<IWorkplanStep> newNote = new List<IWorkplanStep>();
+
+            //Listen für die bereits geprüften Elemente
+            List<IWorkplanStep> check = new List<IWorkplanStep>();
+            List<IWorkplanStep> newCheck = new List<IWorkplanStep>();
+
+
+            if (next.Outputs.Length == newNext.Outputs.Length) //Bedingung: beide Listen gleich viele Connectoren
+            {
+                //erstes Element nach Start wird in der Note-Liste gespeichert 
+                note.Add(next);
+                newNote.Add(newNext); 
+            }
+            else
+            {
+                return false;
+            }
+
+            while (note.Count != 0 && newNote.Count != 0) //solange die Liste gefüllt ist 
+            {
+                //Zählvariable für Outputs
+                int a = 0;
+                //festelegen des Connectors an dem jeweiligen output
+                var c = next.Outputs[a];
+                var newC = newNext.Outputs[a];
+
+
+                if (c != end && newC != newEnd) //Abfrage, ob "End" am Output ist 
+                {
+                    if (c != failed && newC != newFailed) //Abfrage, ob "Failed" am Output ist
+                    {
+                        //speichern des nächsten Elements an diesem Connector
+                        var t = this.Steps.FirstOrDefault(x => x.Inputs.Equals(c));
+                        var newT = newPlan.Steps.FirstOrDefault(x => x.Inputs.Equals(newC));
+
+                        if (check.Contains(t) && newCheck.Contains(newT)) //Überprüfung, ob das Element bereits geprüft wurde
+                        {
+
+                            while (next.Outputs[a] != null && newNext.Outputs[a] != null) //Solange es weitere Outputs gibt
+                            {
+                                //das Element an diesem Output wird zur Liste hinzugefügt 
+                                note.Add(t);
+                                newNote.Add(newT);
+                                a++;
+                            }
+                        }
+                    }
+
+
+                    //Vergleich der Steps
+                    if (next.GetType() == newNext.GetType())
+                    {
+                        //das abgearbeitete Element wird aus der Liste entfernt 
+                        note.RemoveAll(x => x.Equals(next));
+                        newNote.RemoveAll(x => x.Equals(newNext));
+
+                        //das abgearbeitete Element wir in die 'check'-Liste hinzugefügt
+                        check.Add(next);
+                        newCheck.Add(newNext);
+
+                        //"next" wird mit dem nächsten Element der Liste überschrieben 
+                        next = note[0];
+                        newNext = newNote[0];
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                }
+
+            }
+            //beide Pläne sind identisch
+            return true;
+            
+
         }
     }
 }
