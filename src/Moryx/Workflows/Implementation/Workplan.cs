@@ -95,79 +95,79 @@ namespace Moryx.Workplans
             return new Workplan(connectors, steps);
         }
 
+        /// <summary>
+        /// Compare two workplans
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public override bool Equals(object obj)
         {
-            if(!(obj is Workplan))
+            ///check whether the object corresponds to a Workplan
+            if (!(obj is Workplan))
             {
                 return false;
             }
             Workplan newPlan = (Workplan)obj;
 
         
-            //start, end und failed werden festgelegt
+            ///the connectors 'star', 'end' and 'failed are identified
             var start = this.Connectors.First(x => x.Name.Equals("Start"));
             var end = this.Connectors.First(x => x.Name.Equals("End"));
             var failed = this.Connectors.First(x => x.Name.Equals("Failed"));
-            var next = this.Steps.First(x => x.Inputs.Any(y => y.Equals(start)));
 
             var newStart = newPlan.Connectors.First(x => x.Name.Equals("Start"));
             var newEnd = newPlan.Connectors.First(x => x.Name.Equals("End"));
             var newFailed = newPlan.Connectors.First(x => x.Name.Equals("Failed"));
-            var newNext = newPlan.Steps.First(x => x.Inputs.Any(y => y.Equals(newStart)));
 
-            //Listen zur Notiz werden erstellt 
+            ///the first step is identified
+            var step = this.Steps.First(x => x.Inputs.Any(y => y.Equals(start)));
+            var newStep = newPlan.Steps.First(x => x.Inputs.Any(y => y.Equals(newStart)));
+
+            ///lists to note which steps are still need to be checked
             List<IWorkplanStep> note = new List<IWorkplanStep>();
             List<IWorkplanStep> newNote = new List<IWorkplanStep>();
 
-            //Listen für die bereits geprüften Elemente
+            ///lists to note the steps already checked
             List<IWorkplanStep> check = new List<IWorkplanStep>();
             List<IWorkplanStep> newCheck = new List<IWorkplanStep>();
-
-
-            if (next.Outputs.Length == newNext.Outputs.Length) //Bedingung: beide Listen gleich viele Connectoren
+            
+            ///the first step is added to the note list 
+            note.Add(step);
+            newNote.Add(newStep); 
+           
+            ///condition: there are still steps to be checked
+            while (note.Count != 0 && newNote.Count != 0) 
             {
-                //erstes Element nach Start wird in der Note-Liste gespeichert 
-                note.Add(next);
-                newNote.Add(newNext); 
-            }
-            else
-            {
-                return false;
-            }
-
-            while (note.Count != 0 && newNote.Count != 0) //solange die Liste gefüllt ist 
-            {
-                //Zählvariable für Outputs
+                ///counter variable for outputs
                 int a = 0;
 
-                while (a < next.Outputs.Length)
+                while (a < step.Outputs.Length)
                 {
-                    //festelegen des Connectors an dem jeweiligen output
-                    var c = next.Outputs[a];
-                    var newC = newNext.Outputs[a];
+                    ///identify the connector at the respective output
+                    var connector = step.Outputs[a];
+                    var newConnector = newStep.Outputs[a];
 
 
-                    if (c != end && newC != newEnd) //Abfrage, ob "End" am Output ist 
+                    if (connector != end && newConnector != newEnd)  
                     {
-                        if (c != failed && newC != newFailed) //Abfrage, ob "Failed" am Output ist
+                        if (connector != failed && newConnector != newFailed) 
                         {
-                            //speichern des nächsten Elements an diesem Connector
-                            var t = this.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(c)));
-                            var newT = newPlan.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(newC)));
+                            ///identify the following step 
+                            var follower = this.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(connector)));
+                            var newFollower = newPlan.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(newConnector)));
 
-                            if (!(check.Contains(t) && newCheck.Contains(newT))) //Überprüfung, ob das Element bereits geprüft wurde
+                            ///check if the following step has already been checked
+                            if (!(check.Contains(follower) && newCheck.Contains(newFollower))) 
                             {
 
-                                //das Element an diesem Output wird zur Liste hinzugefügt 
-                                note.Add(t);
-                                newNote.Add(newT);
-
-
+                                ///add the following step to the notelist
+                                note.Add(follower);
+                                newNote.Add(newFollower);
                             }
                         }
                         else 
                         {
-                            if (c.Classification != newC.Classification)
+                            if (connector.Classification != newConnector.Classification)
                             {
                                 return false;
                             }
@@ -177,29 +177,30 @@ namespace Moryx.Workplans
                     else 
 
                    {
-                        if (c.Classification != newC.Classification)
+                        if (connector.Classification != newConnector.Classification)
                         {
                             return false;
                         }
                     }
                     a++;
                 }
-                //Vergleich der Steps
-                if (next.GetType() == newNext.GetType())
-                {
-                    //das abgearbeitete Element wird aus der Liste entfernt 
-                    note.RemoveAll(x => x.Equals(next));
-                    newNote.RemoveAll(x => x.Equals(newNext));
 
-                    //das abgearbeitete Element wir in die 'check'-Liste hinzugefügt
-                    check.Add(next);
-                    newCheck.Add(newNext);
+                ///compare steps
+                if (step.GetType() == newStep.GetType())
+                {
+                    ///the compared step is removed from the notelist
+                    note.RemoveAll(x => x.Equals(step));
+                    newNote.RemoveAll(x => x.Equals(newStep));
+
+                    ///and add to the checklist
+                    check.Add(step);
+                    newCheck.Add(newStep);
 
                     if (note.Count != 0 && newNote.Count != 0)
                     {
-                        //"next" wird mit dem nächsten Element der Liste überschrieben 
-                        next = note[0];
-                        newNext = newNote[0];
+                        ///select the next step in the notelist  
+                        step = note[0];
+                        newStep = newNote[0];
                     }
                 }
                 else
@@ -208,7 +209,7 @@ namespace Moryx.Workplans
                 }
 
             }
-            //beide Pläne sind identisch
+            ///both workplans are identical 
             return true;
             
 
