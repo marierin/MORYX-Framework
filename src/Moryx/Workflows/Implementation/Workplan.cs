@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Linq;
 using System.ComponentModel;
+using System;
 
 namespace Moryx.Workplans
 {
@@ -102,15 +103,14 @@ namespace Moryx.Workplans
         /// <returns></returns>
         public override bool Equals(object obj)
         {
-            ///check whether the object corresponds to a Workplan
             if (!(obj is Workplan))
             {
                 return false;
             }
             Workplan newPlan = (Workplan)obj;
 
+            
         
-            ///the connectors 'star', 'end' and 'failed are identified
             var start = this.Connectors.First(x => x.Name.Equals("Start"));
             var end = this.Connectors.First(x => x.Name.Equals("End"));
             var failed = this.Connectors.First(x => x.Name.Equals("Failed"));
@@ -119,88 +119,66 @@ namespace Moryx.Workplans
             var newEnd = newPlan.Connectors.First(x => x.Name.Equals("End"));
             var newFailed = newPlan.Connectors.First(x => x.Name.Equals("Failed"));
 
-            ///the first step is identified
             var step = this.Steps.First(x => x.Inputs.Any(y => y.Equals(start)));
             var newStep = newPlan.Steps.First(x => x.Inputs.Any(y => y.Equals(newStart)));
 
-            ///lists to note which steps are still need to be checked
-            List<IWorkplanStep> note = new List<IWorkplanStep>();
-            List<IWorkplanStep> newNote = new List<IWorkplanStep>();
+            List<IWorkplanStep> needsCheck = new List<IWorkplanStep>();
+            List<IWorkplanStep> newNeedsCheck = new List<IWorkplanStep>();
 
-            ///lists to note the steps already checked
-            List<IWorkplanStep> check = new List<IWorkplanStep>();
-            List<IWorkplanStep> newCheck = new List<IWorkplanStep>();
-            
-            ///the first step is added to the note list 
-            note.Add(step);
-            newNote.Add(newStep); 
-           
-            ///condition: there are still steps to be checked
-            while (note.Count != 0 && newNote.Count != 0) 
+            List<IWorkplanStep> checkd = new List<IWorkplanStep>();
+            List<IWorkplanStep> newCheckd = new List<IWorkplanStep>();
+
+            needsCheck.Add(step);
+            newNeedsCheck.Add(newStep);
+
+            while (needsCheck.Count != 0 && newNeedsCheck.Count != 0) 
             {
-                ///counter variable for outputs
-                int a = 0;
 
-                while (a < step.Outputs.Length)
+                for (int i = 0; i < step.Outputs.Length; i++)
                 {
-                    ///identify the connector at the respective output
-                    var connector = step.Outputs[a];
-                    var newConnector = newStep.Outputs[a];
+                    var connector = step.Outputs[i];
+                    var newConnector = newStep.Outputs[i];
 
+                    bool isNotEndConnector = (connector != end && newConnector != newEnd);
+                    bool isNotFailedConnector = (connector != failed && newConnector != newFailed);
 
-                    if (connector != end && newConnector != newEnd)  
+                    if (isNotEndConnector && isNotFailedConnector)
                     {
-                        if (connector != failed && newConnector != newFailed) 
-                        {
-                            ///identify the following step 
-                            var follower = this.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(connector)));
-                            var newFollower = newPlan.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(newConnector)));
+                        var followingStep = this.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(connector)));
+                        var newFollowingStep = newPlan.Steps.FirstOrDefault(x => x.Inputs.Any(y => y.Equals(newConnector)));
 
-                            ///check if the following step has already been checked
-                            if (!(check.Contains(follower) && newCheck.Contains(newFollower))) 
-                            {
-
-                                ///add the following step to the notelist
-                                note.Add(follower);
-                                newNote.Add(newFollower);
-                            }
-                        }
-                        else 
+                        
+                        bool isAlreadyChecked = (checkd.Contains(followingStep) && newCheckd.Contains(newFollowingStep));
+                        if (!(isAlreadyChecked))
                         {
-                            if (connector.Classification != newConnector.Classification)
-                            {
-                                return false;
-                            }
+
+                            needsCheck.Add(followingStep);
+                            newNeedsCheck.Add(newFollowingStep);
                         }
                     }
-
-                    else 
-
-                   {
+                    else
+                    {
                         if (connector.Classification != newConnector.Classification)
                         {
                             return false;
                         }
                     }
-                    a++;
                 }
 
-                ///compare steps
-                if (step.GetType() == newStep.GetType())
+
+                bool isSameStep = (step.GetType() == newStep.GetType());
+                if (isSameStep)
                 {
-                    ///the compared step is removed from the notelist
-                    note.RemoveAll(x => x.Equals(step));
-                    newNote.RemoveAll(x => x.Equals(newStep));
+                    needsCheck.Remove(step);
+                    newNeedsCheck.Remove(newStep);
 
-                    ///and add to the checklist
-                    check.Add(step);
-                    newCheck.Add(newStep);
+                    checkd.Add(step);
+                    newCheckd.Add(newStep);
 
-                    if (note.Count != 0 && newNote.Count != 0)
+                    if (needsCheck.Count != 0 && newNeedsCheck.Count != 0)
                     {
-                        ///select the next step in the notelist  
-                        step = note[0];
-                        newStep = newNote[0];
+                        step = needsCheck[0];
+                        newStep = newNeedsCheck[0];
                     }
                 }
                 else
@@ -209,7 +187,6 @@ namespace Moryx.Workplans
                 }
 
             }
-            ///both workplans are identical 
             return true;
             
 
